@@ -1,0 +1,126 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+*.env
+
+# Production builds
+frontend/dist/
+frontend/build/
+backend/dist/
+backend/build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+logs/
+firebase-debug.log
+firebase-debug.*.log
+
+# Testing
+coverage/
+.nyc_output/
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Cache
+.cache/
+.parcel-cache/
+.npm/
+.yarn/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Vite
+frontend/.vite/
+.vite/
+
+# Firebase
+.firebase/
+firebase-debug.log
+.firebaserc.local
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+temp/
+
+# Python virtual environments (additional patterns)
+.venv/
+venv*/
+ENV*/
+env*/
+
+# Documentation (not committed)
+frontend/docs/
+
+# MCP server cache/temp
+selfcare-mcp-agent/__pycache__/
+selfcare-mcp-agent/**/__pycache__/
+selfcare-mcp-agent/.pytest_cache/
+selfcare-mcp-agent/.coverage
+
