@@ -4,9 +4,9 @@ A personalized AI-powered self-care companion designed to support college studen
 
 ## 🎬 Demo
 
-**Live Site**: [https://youtu.be/McjJqqGhw0A]
+**Live Site**: [Coming Soon - Add deployed URL here]
 
-**Demo Video**: [Coming Soon - Add demo video link here]
+[Demo Video](https://youtu.be/McjJqqGhw0A)
 
 ## 🎯 Mission
 
