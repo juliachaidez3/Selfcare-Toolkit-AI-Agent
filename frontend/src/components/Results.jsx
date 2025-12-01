@@ -1,21 +1,22 @@
 import { useState } from 'react'
 
-function Results({ results, error, onRestartQuiz, onBackToHome, onSaveToToolkit, user }) {
+function Results({ results, error, onRestartQuiz, onBackToHome, onSaveToToolkit, user, onSignUp }) {
   const [hoveredIndex, setHoveredIndex] = useState(null)
   const [savedItems, setSavedItems] = useState(new Set())
 
   const handleSave = async (item, index) => {
     if (!user) {
-      alert('Please log in to save items to your toolkit')
+      console.warn('Please log in to save items to your toolkit')
       return
     }
     
     try {
       await onSaveToToolkit(item)
       setSavedItems(prev => new Set([...prev, index]))
+      console.log('Item saved to toolkit successfully')
     } catch (error) {
       console.error('Error saving to toolkit:', error)
-      alert('Failed to save to toolkit. Please try again.')
+      console.error('Failed to save to toolkit. Please try again.')
     }
   }
 
@@ -30,6 +31,7 @@ function Results({ results, error, onRestartQuiz, onBackToHome, onSaveToToolkit,
       {results && results.length > 0 && (
         <>
           <h2>Your Personalized Self-Care Toolkit:</h2>
+          
           <div className="results-container">
             {results.map((item, index) => (
               <div 
@@ -70,9 +72,6 @@ function Results({ results, error, onRestartQuiz, onBackToHome, onSaveToToolkit,
       <div className="button-container">
         <button className="primary-button start-over-button" onClick={onRestartQuiz}>
           Start Over
-        </button>
-        <button className="primary-button back-to-home-button" onClick={onBackToHome}>
-          Back to Home
         </button>
       </div>
     </div>

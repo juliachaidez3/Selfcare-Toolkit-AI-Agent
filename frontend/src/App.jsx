@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from './firebase/config'
@@ -9,11 +9,12 @@ import Dashboard from './components/Dashboard'
 import Quiz from './components/Quiz'
 import Loading from './components/Loading'
 import Results from './components/Results'
+import Navbar from './components/Navbar'
 
 function App() {
   const [user, setUser] = useState(null)
   const [authView, setAuthView] = useState('landing') // 'landing', 'signup', 'login'
-  const [currentView, setCurrentView] = useState('dashboard') // 'dashboard', 'quiz', 'loading', 'results'
+  const [currentView, setCurrentView] = useState('landing') // 'landing', 'dashboard', 'quiz', 'loading', 'results', 'toolkit'
   const [quizData, setQuizData] = useState({
     struggle: '',
     mood: '',
@@ -24,21 +25,51 @@ function App() {
   const [results, setResults] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showToolkit, setShowToolkit] = useState(false) // Track if toolkit view is shown
+  const previousUserRef = useRef(null) // Track previous user state to detect sign-up
+
+  // Function to save quiz data when user signs up after taking quiz
+  const handleSaveQuizData = async (quizDataToSave, userId) => {
+    // Save quiz data when user signs up after taking quiz
+    if (results && results.length > 0) {
+      try {
+        await saveQuizToFirestore(userId, quizDataToSave, results)
+        console.log('Pending quiz data saved to Firestore after sign-up')
+      } catch (saveError) {
+        console.error('Error saving pending quiz to Firestore:', saveError)
+      }
+    }
+  }
 
   // Check authentication state on mount
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      const previousUser = previousUserRef.current
+      const wasUnauthenticated = !previousUser && !!currentUser // Ensure boolean result
+      
+      // Update ref before setting state
+      previousUserRef.current = currentUser
       setUser(currentUser)
       setLoading(false)
+      
       if (currentUser) {
         setAuthView(null) // User is authenticated, hide auth views
-        setCurrentView('dashboard')
+        
+        // Always navigate to dashboard when user authenticates (login or signup)
+        // Check if user just authenticated (was not authenticated before) or is on auth-related views
+        if (!previousUser || wasUnauthenticated || currentView === 'landing' || currentView === 'signup' || currentView === 'login') {
+          setCurrentView('dashboard')
+        }
       } else {
-        setAuthView('landing') // User is not authenticated, show landing
+        // User is not authenticated (logged out)
+        // Always go to landing page when user logs out
+        setCurrentView('landing')
+        setAuthView('landing')
       }
     })
 
     return () => unsubscribe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSignUp = () => {
@@ -61,7 +92,9 @@ function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth)
-      setCurrentView('dashboard')
+      // Reset all state
+      setCurrentView('landing')
+      setAuthView('landing')
       setQuizData({
         struggle: '',
         mood: '',
@@ -71,13 +104,40 @@ function App() {
       })
       setResults(null)
       setError(null)
+      setShowToolkit(false)
     } catch (err) {
       console.error('Logout error:', err)
     }
   }
 
   const handleStartQuiz = () => {
+    // Only allow authenticated users to take the quiz
+    if (!user) {
+      // Redirect to sign up if not authenticated
+      setAuthView('signup')
+      return
+    }
     setCurrentView('quiz')
+    setQuizData({
+      struggle: '',
+      mood: '',
+      focus: '',
+      copingPreferences: [],
+      energyLevel: ''
+    })
+    setResults(null)
+    setError(null)
+  }
+
+  const handleExitQuiz = () => {
+    // Go back to previous view without saving
+    if (user) {
+      setCurrentView('dashboard')
+    } else {
+      setCurrentView('landing')
+      setAuthView('landing')
+    }
+    // Clear quiz data
     setQuizData({
       struggle: '',
       mood: '',
@@ -154,7 +214,7 @@ function App() {
         if (recommendations.length > 0) {
           setResults(recommendations)
           
-          // Save quiz data and results to Firestore
+          // Save quiz data and results to Firestore (user must be authenticated to take quiz)
           if (user) {
             try {
               await saveQuizToFirestore(user.uid, quizData, recommendations)
@@ -192,7 +252,12 @@ function App() {
   }
 
   const handleBackToHome = () => {
-    setCurrentView('dashboard')
+    if (user) {
+      setCurrentView('dashboard')
+    } else {
+      setCurrentView('landing')
+      setAuthView('landing')
+    }
     setQuizData({
       struggle: '',
       mood: '',
@@ -202,6 +267,16 @@ function App() {
     })
     setResults(null)
     setError(null)
+  }
+
+  const handleBackToDashboard = () => {
+    setCurrentView('dashboard')
+    setShowToolkit(false) // Also close toolkit view if open
+  }
+
+  const handleViewToolkit = () => {
+    setCurrentView('toolkit')
+    setShowToolkit(false)
   }
 
   // Get user's name from email (part before @) or use displayName
@@ -219,25 +294,47 @@ function App() {
   // Function to save quiz data and results to Firestore
   const saveQuizToFirestore = async (userId, quizData, recommendations) => {
     try {
+      // Validate and sanitize recommendations - ensure they're plain objects
+      const sanitizedRecommendations = (recommendations || []).map(rec => {
+        // Create a clean object with only the fields we need
+        return {
+          title: rec.title || '',
+          why_it_helps: rec.why_it_helps || '',
+          steps: Array.isArray(rec.steps) ? rec.steps : [],
+          time_estimate: rec.time_estimate || '',
+          difficulty: rec.difficulty || ''
+        }
+      })
+
+      // Validate quiz data
+      const sanitizedQuizData = {
+        struggle: quizData?.struggle || '',
+        mood: quizData?.mood || '',
+        focus: quizData?.focus || '',
+        copingPreferences: Array.isArray(quizData?.copingPreferences) ? quizData.copingPreferences : [],
+        energyLevel: quizData?.energyLevel || ''
+      }
+
       const quizRecord = {
         userId: userId,
-        quizData: {
-          struggle: quizData.struggle,
-          mood: quizData.mood,
-          focus: quizData.focus,
-          copingPreferences: quizData.copingPreferences,
-          energyLevel: quizData.energyLevel
-        },
-        recommendations: recommendations,
+        quizData: sanitizedQuizData,
+        recommendations: sanitizedRecommendations,
         createdAt: serverTimestamp(),
         completedAt: serverTimestamp()
       }
 
       // Save to 'quizzes' collection
       await addDoc(collection(db, 'quizzes'), quizRecord)
+      console.log('Quiz data saved successfully to Firestore')
     } catch (error) {
       console.error('Error saving quiz to Firestore:', error)
-      throw error
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      })
+      // Don't throw - just log the error so the user can still see results
+      // The error might be due to Firestore rules or network issues
     }
   }
 
@@ -263,6 +360,34 @@ function App() {
     }
   }
 
+  // Function to execute agent actions
+  const handleExecuteAction = async (action, userId) => {
+    try {
+      const response = await fetch('/api/execute_action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: action,
+          userId: userId
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      return result
+    } catch (error) {
+      console.error('Error executing action:', error)
+      return {
+        success: false,
+        message: error.message || 'Failed to execute action'
+      }
+    }
+  }
+
   // Show loading while checking auth
   if (loading) {
     return (
@@ -275,59 +400,53 @@ function App() {
     )
   }
 
-  // Show authentication views if user is not authenticated
-  if (!user) {
-    return (
-      <div className="container">
-        {authView === 'landing' && (
-          <Landing onSignUp={handleSignUp} onLogin={handleLogin} />
-        )}
-        {authView === 'signup' && (
-          <SignUp onBack={handleAuthBack} onSuccess={handleAuthSuccess} />
-        )}
-        {authView === 'login' && (
-          <Login onBack={handleAuthBack} onSuccess={handleAuthSuccess} />
-        )}
-        <p className="disclaimer">
-          This is general wellness guidance, not medical advice. If you're in crisis, contact campus counseling or emergency services.
-        </p>
-      </div>
-    )
-  }
-
-  // User is authenticated, show main app
+  // Show views based on currentView, not just auth state
   return (
     <div className="container">
-      {/* {user && (
-        <div className="user-info">
-          <p>Logged in as: <strong>{user.email}</strong></p>
-          <button className="logout-button" onClick={handleLogout}>
-            Log Out
-          </button>
-        </div>
-      )} */}
-
-      {currentView === 'dashboard' && (
-        <Dashboard 
-          userName={getUserName()} 
-          onStartQuiz={handleStartQuiz}
-          onLogout={handleLogout}
-          userId={user?.uid}
+      {/* Navbar - shown on all pages */}
+      <Navbar
+        user={user}
+        currentView={currentView}
+        onLogout={handleLogout}
+        onBackToDashboard={handleBackToDashboard}
+        onLogin={handleLogin}
+        onExitQuiz={handleExitQuiz}
+        showToolkit={showToolkit}
+        authView={authView}
+      />
+      
+      {/* Landing page - shown when not authenticated and on landing view */}
+      {!user && authView === 'landing' && currentView === 'landing' && (
+        <Landing 
+          onSignUp={handleSignUp} 
+          onLogin={handleLogin}
         />
       )}
-      
+
+      {/* Auth views - signup/login */}
+      {!user && authView === 'signup' && (
+        <SignUp onBack={handleAuthBack} onSuccess={handleAuthSuccess} />
+      )}
+      {!user && authView === 'login' && (
+        <Login onBack={handleAuthBack} onSuccess={handleAuthSuccess} />
+      )}
+
+      {/* Quiz view - available to both authenticated and unauthenticated users */}
       {currentView === 'quiz' && (
         <Quiz
           quizData={quizData}
           onUpdateQuizData={handleUpdateQuizData}
           onGenerateToolkit={handleGenerateToolkit}
+          onExit={handleExitQuiz}
         />
       )}
 
+      {/* Loading view */}
       {currentView === 'loading' && (
         <Loading />
       )}
 
+      {/* Results view - available to both authenticated and unauthenticated users */}
       {currentView === 'results' && (
         <Results
           results={results}
@@ -336,12 +455,38 @@ function App() {
           onBackToHome={handleBackToHome}
           onSaveToToolkit={handleSaveToToolkit}
           user={user}
+          onSignUp={handleSignUp}
         />
       )}
 
-      <p className="disclaimer">
-        This is general wellness guidance, not medical advice. If you're in crisis, contact campus counseling or emergency services.
-      </p>
+      {/* Dashboard - only for authenticated users */}
+      {user && currentView === 'dashboard' && (
+        <Dashboard 
+          userName={getUserName()} 
+          onStartQuiz={handleStartQuiz}
+          onLogout={handleLogout}
+          userId={user?.uid}
+          onExecuteAction={handleExecuteAction}
+          onShowToolkitChange={setShowToolkit}
+          externalShowToolkit={showToolkit}
+          onViewToolkit={handleViewToolkit}
+        />
+      )}
+
+      {user && currentView === 'toolkit' && (
+        <Dashboard 
+          userName={getUserName()} 
+          onStartQuiz={handleStartQuiz}
+          onLogout={handleLogout}
+          userId={user?.uid}
+          onExecuteAction={handleExecuteAction}
+          onShowToolkitChange={setShowToolkit}
+          externalShowToolkit={true}
+          onViewToolkit={handleViewToolkit}
+          showToolkitOnly={true}
+        />
+      )}
+
     </div>
   )
 }

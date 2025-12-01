@@ -37,6 +37,10 @@ wheels/
 .env.test
 *.env
 
+# Google Calendar credentials
+credentials.json
+token.json
+
 # Production builds
 frontend/dist/
 frontend/build/

@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 const TOTAL_QUESTIONS = 5
 
-function Quiz({ quizData, onUpdateQuizData, onGenerateToolkit }) {
+function Quiz({ quizData, onUpdateQuizData, onGenerateToolkit, onExit }) {
   const [currentQuestion, setCurrentQuestion] = useState(1)
 
   const handleNext = () => {
@@ -24,27 +24,27 @@ function Quiz({ quizData, onUpdateQuizData, onGenerateToolkit }) {
   const validateCurrentQuestion = () => {
     if (currentQuestion === 1) {
       if (!quizData.struggle.trim()) {
-        alert('Please answer the question before continuing.')
+        console.warn('Please answer the question before continuing.')
         return false
       }
     } else if (currentQuestion === 2) {
       if (!quizData.mood.trim()) {
-        alert('Please answer the question before continuing.')
+        console.warn('Please answer the question before continuing.')
         return false
       }
     } else if (currentQuestion === 3) {
       if (!quizData.focus) {
-        alert('Please select an option before continuing.')
+        console.warn('Please select an option before continuing.')
         return false
       }
     } else if (currentQuestion === 4) {
       if (quizData.copingPreferences.length === 0) {
-        alert('Please select at least one option before continuing.')
+        console.warn('Please select at least one option before continuing.')
         return false
       }
     } else if (currentQuestion === 5) {
       if (!quizData.energyLevel) {
-        alert('Please select an option before continuing.')
+        console.warn('Please select an option before continuing.')
         return false
       }
     }
@@ -61,6 +61,7 @@ function Quiz({ quizData, onUpdateQuizData, onGenerateToolkit }) {
 
   return (
     <div className="quiz-page active">
+
       {/* Progress Bar */}
       <div className="progress-container">
         <div className="progress-bar">
